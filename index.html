@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hand Landmark Debugger</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="camera-panel" aria-label="camera preview">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">MediaPipe Hand Landmarker</p>
+            <h1>Hand Landmark Debugger</h1>
+          </div>
+          <div id="statusMessage" class="status-pill">Initializing</div>
+        </div>
+
+        <div id="stage" class="stage">
+          <video id="cameraVideo" playsinline muted autoplay></video>
+          <canvas id="overlayCanvas"></canvas>
+          <div id="stageMessage" class="stage-message">Camera permission required</div>
+        </div>
+
+        <div class="control-bar" aria-label="controls">
+          <div class="mode-control" role="group" aria-label="display mode">
+            <button class="mode-button is-active" data-mode="debug" type="button">Debug</button>
+            <button class="mode-button" data-mode="art" type="button">Art</button>
+            <button class="mode-button" data-mode="hybrid" type="button">Hybrid</button>
+          </div>
+          <label class="toggle">
+            <input id="mirrorToggle" type="checkbox" checked />
+            <span>Mirror</span>
+          </label>
+          <label class="toggle">
+            <input id="smoothingToggle" type="checkbox" checked />
+            <span>Smoothing</span>
+          </label>
+          <label class="toggle">
+            <input id="cameraToggle" type="checkbox" checked />
+            <span>Camera</span>
+          </label>
+          <label class="slider-control">
+            <span>Trail</span>
+            <input id="trailSlider" type="range" min="0.25" max="1.8" value="1" step="0.05" />
+            <strong id="trailValue">1.00</strong>
+          </label>
+          <label class="slider-control">
+            <span>Light</span>
+            <input id="lightSlider" type="range" min="0.2" max="2.2" value="1" step="0.05" />
+            <strong id="lightValue">1.00</strong>
+          </label>
+          <button id="retryButton" type="button">Retry Camera</button>
+          <button id="downloadButton" type="button" disabled>Download JSON</button>
+        </div>
+
+        <div id="errorMessage" class="error-message" hidden></div>
+      </section>
+
+      <aside class="debug-panel" aria-label="debug information">
+        <div class="debug-header">
+          <h2>Debug</h2>
+          <span id="handCountBadge" class="count-badge">0 hands</span>
+        </div>
+
+        <div class="debug-grid">
+          <div class="debug-row">
+            <span>FPS</span>
+            <strong id="fpsValue">0.0</strong>
+          </div>
+          <div class="debug-row">
+            <span>Hands</span>
+            <strong id="handCountValue">0</strong>
+          </div>
+          <div class="debug-row">
+            <span>Mirror</span>
+            <strong id="mirrorValue">ON</strong>
+          </div>
+          <div class="debug-row">
+            <span>Smoothing</span>
+            <strong id="smoothingValue">ON</strong>
+          </div>
+          <div class="debug-row">
+            <span>Mode</span>
+            <strong id="modeValue">Debug</strong>
+          </div>
+          <div class="debug-row">
+            <span>Camera</span>
+            <strong id="cameraValue">ON</strong>
+          </div>
+        </div>
+
+        <div id="handsDebug" class="hands-debug">
+          <div class="empty-debug">No hand detected</div>
+        </div>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
