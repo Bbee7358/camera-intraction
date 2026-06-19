@@ -1,6 +1,4 @@
-import { drawFingerSources, LightParticleSystem } from "./lightParticles";
-import { toCanvasPoint } from "./fingerGesture";
-import type { DisplayMode, HandSnapshot, TrackingFrame } from "./types";
+import type { HandSnapshot, LandmarkPoint, TrackingFrame } from "./types";
 
 const HAND_CONNECTIONS: Array<[number, number]> = [
   [0, 1],
@@ -28,9 +26,6 @@ const HAND_CONNECTIONS: Array<[number, number]> = [
 
 const HAND_COLORS = ["#00c2ff", "#ffb000"];
 
-const particleSystem = new LightParticleSystem();
-let previousDrawTimestamp = 0;
-
 export function syncCanvasToVideo(
   video: HTMLVideoElement,
   canvas: HTMLCanvasElement,
@@ -57,34 +52,11 @@ export function drawTrackingFrame(
     return;
   }
 
-  const deltaSeconds =
-    previousDrawTimestamp === 0
-      ? 1 / 60
-      : Math.min(0.08, (frame.timestamp - previousDrawTimestamp) / 1000);
-  previousDrawTimestamp = frame.timestamp;
+  context.clearRect(0, 0, canvas.width, canvas.height);
 
-  drawBackground(context, canvas.width, canvas.height, frame.displayMode);
-
-  if (frame.displayMode !== "art") {
-    frame.hands.forEach((hand, index) => {
-      drawHand(
-        context,
-        hand,
-        canvas.width,
-        canvas.height,
-        frame.mirrorEnabled,
-        index,
-        frame.displayMode,
-      );
-    });
-  }
-
-  particleSystem.updateAndDraw(context, frame.hands, deltaSeconds, {
-    intensity: frame.lightIntensity,
-    trailLength: frame.trailLength,
-    mode: frame.displayMode,
+  frame.hands.forEach((hand, index) => {
+    drawHand(context, hand, canvas.width, canvas.height, frame.mirrorEnabled, index);
   });
-  drawFingerSources(context, frame.hands, frame.lightIntensity);
 }
 
 function drawHand(
@@ -94,16 +66,12 @@ function drawHand(
   height: number,
   mirrorEnabled: boolean,
   handIndex: number,
-  mode: DisplayMode,
 ): void {
   const color = HAND_COLORS[handIndex % HAND_COLORS.length];
-  const skeletonAlpha = mode === "hybrid" ? 0.28 : 1;
-  const landmarkAlpha = mode === "hybrid" ? 0.55 : 1;
-  const showLabels = mode === "debug";
 
   context.lineWidth = Math.max(2, width * 0.003);
   context.lineCap = "round";
-  context.strokeStyle = withAlpha(color, skeletonAlpha);
+  context.strokeStyle = color;
 
   HAND_CONNECTIONS.forEach(([startIndex, endIndex]) => {
     const start = hand.landmarks[startIndex];
@@ -127,12 +95,7 @@ function drawHand(
     const radius = index === 4 || index === 8 ? 7 : 5;
 
     context.beginPath();
-    context.fillStyle =
-      index === 8
-        ? withAlpha("#57f287", landmarkAlpha)
-        : index === 4
-          ? withAlpha("#ff5c8a", landmarkAlpha)
-          : withAlpha(color, landmarkAlpha);
+    context.fillStyle = index === 8 ? "#57f287" : index === 4 ? "#ff5c8a" : color;
     context.arc(point.x, point.y, radius, 0, Math.PI * 2);
     context.fill();
 
@@ -140,39 +103,20 @@ function drawHand(
     context.strokeStyle = "#071018";
     context.stroke();
 
-    if (showLabels) {
-      drawLandmarkLabel(context, String(index), point.x, point.y);
-    }
+    drawLandmarkLabel(context, String(index), point.x, point.y);
   });
-
-  if (mode === "debug") {
-    drawFingerExtensionLabels(context, hand);
-  }
 }
 
-function drawBackground(
-  context: CanvasRenderingContext2D,
+function toCanvasPoint(
+  landmark: LandmarkPoint,
   width: number,
   height: number,
-  mode: DisplayMode,
-): void {
-  context.clearRect(0, 0, width, height);
-
-  if (mode === "art") {
-    const gradient = context.createRadialGradient(
-      width * 0.5,
-      height * 0.5,
-      0,
-      width * 0.5,
-      height * 0.5,
-      Math.max(width, height) * 0.72,
-    );
-
-    gradient.addColorStop(0, "rgba(16, 22, 34, 0.38)");
-    gradient.addColorStop(1, "rgba(0, 0, 0, 0.68)");
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, width, height);
-  }
+  mirrorEnabled: boolean,
+): { x: number; y: number } {
+  return {
+    x: (mirrorEnabled ? 1 - landmark.x : landmark.x) * width,
+    y: landmark.y * height,
+  };
 }
 
 function drawLandmarkLabel(
@@ -198,52 +142,4 @@ function drawLandmarkLabel(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
-}
-
-function drawFingerExtensionLabels(
-  context: CanvasRenderingContext2D,
-  hand: HandSnapshot,
-): void {
-  context.save();
-  context.font = "12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  context.textBaseline = "middle";
-
-  hand.fingers.forEach((finger) => {
-    const label = finger.isExtended ? `${finger.label} ON` : `${finger.label} off`;
-    const x = finger.canvasPosition.x + 12;
-    const y = finger.canvasPosition.y + 14;
-    const textWidth = context.measureText(label).width;
-
-    context.fillStyle = finger.isExtended
-      ? "rgba(87, 242, 135, 0.82)"
-      : "rgba(7, 16, 24, 0.72)";
-    context.fillRect(x - 4, y - 8, textWidth + 8, 16);
-    context.fillStyle = finger.isExtended ? "#03110a" : "#d6e2ee";
-    context.fillText(label, x, y);
-  });
-
-  context.restore();
-}
-
-function withAlpha(color: string, alpha: number): string {
-  if (color.startsWith("#")) {
-    const hex = color.slice(1);
-    const value = Number.parseInt(hex.length === 3 ? expandHex(hex) : hex, 16);
-    const r = (value >> 16) & 255;
-    const g = (value >> 8) & 255;
-    const b = value & 255;
-
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-
-  return color.replace(/rgba\\(([^,]+), ([^,]+), ([^,]+), [^)]+\\)/, (_, r, g, b) => {
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  });
-}
-
-function expandHex(hex: string): string {
-  return hex
-    .split("")
-    .map((character) => character + character)
-    .join("");
 }

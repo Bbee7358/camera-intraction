@@ -91,7 +91,6 @@ function createHandSnapshot(
     handednessScore,
     landmarks,
     rawLandmarks,
-    fingers: [],
     thumbTip,
     indexFingerTip,
     thumbIndexDistance,

@@ -23,11 +23,6 @@
         </div>
 
         <div class="control-bar" aria-label="controls">
-          <div class="mode-control" role="group" aria-label="display mode">
-            <button class="mode-button is-active" data-mode="debug" type="button">Debug</button>
-            <button class="mode-button" data-mode="art" type="button">Art</button>
-            <button class="mode-button" data-mode="hybrid" type="button">Hybrid</button>
-          </div>
           <label class="toggle">
             <input id="mirrorToggle" type="checkbox" checked />
             <span>Mirror</span>
@@ -35,20 +30,6 @@
           <label class="toggle">
             <input id="smoothingToggle" type="checkbox" checked />
             <span>Smoothing</span>
-          </label>
-          <label class="toggle">
-            <input id="cameraToggle" type="checkbox" checked />
-            <span>Camera</span>
-          </label>
-          <label class="slider-control">
-            <span>Trail</span>
-            <input id="trailSlider" type="range" min="0.25" max="1.8" value="1" step="0.05" />
-            <strong id="trailValue">1.00</strong>
-          </label>
-          <label class="slider-control">
-            <span>Light</span>
-            <input id="lightSlider" type="range" min="0.2" max="2.2" value="1" step="0.05" />
-            <strong id="lightValue">1.00</strong>
           </label>
           <button id="retryButton" type="button">Retry Camera</button>
           <button id="downloadButton" type="button" disabled>Download JSON</button>
@@ -79,14 +60,6 @@
           <div class="debug-row">
             <span>Smoothing</span>
             <strong id="smoothingValue">ON</strong>
-          </div>
-          <div class="debug-row">
-            <span>Mode</span>
-            <strong id="modeValue">Debug</strong>
-          </div>
-          <div class="debug-row">
-            <span>Camera</span>
-            <strong id="cameraValue">ON</strong>
           </div>
         </div>
 

@@ -1,11 +1,8 @@
-import type { DisplayMode, DownloadPayload, TrackingFrame } from "./types";
-import { getExtendedFingerLabels } from "./fingerGesture";
+import type { DownloadPayload, TrackingFrame } from "./types";
 
 type ToggleCallback = (enabled: boolean) => void;
 type DownloadCallback = () => void;
 type RetryCallback = () => void;
-type ModeCallback = (mode: DisplayMode) => void;
-type NumberCallback = (value: number) => void;
 
 export interface UIController {
   readonly video: HTMLVideoElement;
@@ -13,10 +10,6 @@ export interface UIController {
   readonly stage: HTMLElement;
   getMirrorEnabled: () => boolean;
   getSmoothingEnabled: () => boolean;
-  getDisplayMode: () => DisplayMode;
-  getCameraVisible: () => boolean;
-  getTrailLength: () => number;
-  getLightIntensity: () => number;
   setStatus: (message: string) => void;
   setError: (message: string) => void;
   clearError: () => void;
@@ -25,10 +18,6 @@ export interface UIController {
   renderFrame: (frame: TrackingFrame) => void;
   onMirrorChange: (callback: ToggleCallback) => void;
   onSmoothingChange: (callback: ToggleCallback) => void;
-  onCameraVisibleChange: (callback: ToggleCallback) => void;
-  onDisplayModeChange: (callback: ModeCallback) => void;
-  onTrailLengthChange: (callback: NumberCallback) => void;
-  onLightIntensityChange: (callback: NumberCallback) => void;
   onDownload: (callback: DownloadCallback) => void;
   onRetry: (callback: RetryCallback) => void;
 }
@@ -42,32 +31,19 @@ export function createUI(): UIController {
   const errorMessage = getElement<HTMLElement>("errorMessage");
   const mirrorToggle = getElement<HTMLInputElement>("mirrorToggle");
   const smoothingToggle = getElement<HTMLInputElement>("smoothingToggle");
-  const cameraToggle = getElement<HTMLInputElement>("cameraToggle");
-  const trailSlider = getElement<HTMLInputElement>("trailSlider");
-  const lightSlider = getElement<HTMLInputElement>("lightSlider");
-  const trailValue = getElement<HTMLElement>("trailValue");
-  const lightValue = getElement<HTMLElement>("lightValue");
   const retryButton = getElement<HTMLButtonElement>("retryButton");
   const downloadButton = getElement<HTMLButtonElement>("downloadButton");
-  const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>(".mode-button"));
   const fpsValue = getElement<HTMLElement>("fpsValue");
   const handCountValue = getElement<HTMLElement>("handCountValue");
   const handCountBadge = getElement<HTMLElement>("handCountBadge");
   const mirrorValue = getElement<HTMLElement>("mirrorValue");
   const smoothingValue = getElement<HTMLElement>("smoothingValue");
-  const modeValue = getElement<HTMLElement>("modeValue");
-  const cameraValue = getElement<HTMLElement>("cameraValue");
   const handsDebug = getElement<HTMLElement>("handsDebug");
 
   const mirrorCallbacks = new Set<ToggleCallback>();
   const smoothingCallbacks = new Set<ToggleCallback>();
-  const cameraCallbacks = new Set<ToggleCallback>();
-  const modeCallbacks = new Set<ModeCallback>();
-  const trailCallbacks = new Set<NumberCallback>();
-  const lightCallbacks = new Set<NumberCallback>();
   const downloadCallbacks = new Set<DownloadCallback>();
   const retryCallbacks = new Set<RetryCallback>();
-  let displayMode: DisplayMode = "debug";
 
   mirrorToggle.addEventListener("change", () => {
     mirrorValue.textContent = mirrorToggle.checked ? "ON" : "OFF";
@@ -77,35 +53,6 @@ export function createUI(): UIController {
   smoothingToggle.addEventListener("change", () => {
     smoothingValue.textContent = smoothingToggle.checked ? "ON" : "OFF";
     smoothingCallbacks.forEach((callback) => callback(smoothingToggle.checked));
-  });
-
-  cameraToggle.addEventListener("change", () => {
-    cameraValue.textContent = cameraToggle.checked ? "ON" : "OFF";
-    cameraCallbacks.forEach((callback) => callback(cameraToggle.checked));
-  });
-
-  trailSlider.addEventListener("input", () => {
-    trailValue.textContent = Number(trailSlider.value).toFixed(2);
-    trailCallbacks.forEach((callback) => callback(Number(trailSlider.value)));
-  });
-
-  lightSlider.addEventListener("input", () => {
-    lightValue.textContent = Number(lightSlider.value).toFixed(2);
-    lightCallbacks.forEach((callback) => callback(Number(lightSlider.value)));
-  });
-
-  modeButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      displayMode = normalizeDisplayMode(button.dataset.mode);
-      modeButtons.forEach((modeButton) => {
-        modeButton.classList.toggle(
-          "is-active",
-          normalizeDisplayMode(modeButton.dataset.mode) === displayMode,
-        );
-      });
-      modeValue.textContent = toModeLabel(displayMode);
-      modeCallbacks.forEach((callback) => callback(displayMode));
-    });
   });
 
   downloadButton.addEventListener("click", () => {
@@ -122,10 +69,6 @@ export function createUI(): UIController {
     stage,
     getMirrorEnabled: () => mirrorToggle.checked,
     getSmoothingEnabled: () => smoothingToggle.checked,
-    getDisplayMode: () => displayMode,
-    getCameraVisible: () => cameraToggle.checked,
-    getTrailLength: () => Number(trailSlider.value),
-    getLightIntensity: () => Number(lightSlider.value),
     setStatus: (message: string) => {
       statusMessage.textContent = message;
     },
@@ -153,8 +96,6 @@ export function createUI(): UIController {
       }`;
       mirrorValue.textContent = frame.mirrorEnabled ? "ON" : "OFF";
       smoothingValue.textContent = frame.smoothingEnabled ? "ON" : "OFF";
-      modeValue.textContent = toModeLabel(frame.displayMode);
-      cameraValue.textContent = frame.cameraVisible ? "ON" : "OFF";
       handsDebug.replaceChildren(...renderHandDebug(frame));
     },
     onMirrorChange: (callback: ToggleCallback) => {
@@ -162,18 +103,6 @@ export function createUI(): UIController {
     },
     onSmoothingChange: (callback: ToggleCallback) => {
       smoothingCallbacks.add(callback);
-    },
-    onCameraVisibleChange: (callback: ToggleCallback) => {
-      cameraCallbacks.add(callback);
-    },
-    onDisplayModeChange: (callback: ModeCallback) => {
-      modeCallbacks.add(callback);
-    },
-    onTrailLengthChange: (callback: NumberCallback) => {
-      trailCallbacks.add(callback);
-    },
-    onLightIntensityChange: (callback: NumberCallback) => {
-      lightCallbacks.add(callback);
     },
     onDownload: (callback: DownloadCallback) => {
       downloadCallbacks.add(callback);
@@ -196,7 +125,6 @@ export function createDownloadPayload(frame: TrackingFrame): DownloadPayload {
       handednessScore: hand.handednessScore,
       landmarks: hand.landmarks,
       rawLandmarks: hand.rawLandmarks,
-      fingers: hand.fingers,
       indexFingerTip: hand.indexFingerTip,
       thumbTip: hand.thumbTip,
       thumbIndexDistance: hand.thumbIndexDistance,
@@ -244,34 +172,10 @@ function renderHandDebug(frame: TrackingFrame): HTMLElement[] {
       debugLine("landmark 8", formatPoint(hand.indexFingerTip)),
       debugLine("landmark 4-8", hand.thumbIndexDistance.toFixed(4)),
       debugLine("pinch", hand.pinch ? "true" : "false"),
-      debugLine(
-        "extended",
-        getExtendedFingerLabels(hand).join(", ") || "none",
-      ),
     );
 
     return card;
   });
-}
-
-function normalizeDisplayMode(value: string | undefined): DisplayMode {
-  if (value === "art" || value === "hybrid") {
-    return value;
-  }
-
-  return "debug";
-}
-
-function toModeLabel(mode: DisplayMode): string {
-  if (mode === "art") {
-    return "Art";
-  }
-
-  if (mode === "hybrid") {
-    return "Hybrid";
-  }
-
-  return "Debug";
 }
 
 function debugLine(label: string, value: string): HTMLElement {

@@ -1,13 +1,11 @@
 import "./style.css";
 import { drawTrackingFrame, syncCanvasToVideo } from "./drawing";
-import { FingerGestureAnalyzer } from "./fingerGesture";
 import { HandTrackingService } from "./handTracking";
 import type { TrackingFrame } from "./types";
 import { createDownloadPayload, createUI, downloadJson } from "./ui";
 
 const ui = createUI();
 const handTracking = new HandTrackingService();
-const fingerGesture = new FingerGestureAnalyzer();
 
 let animationFrameId = 0;
 let latestFrame: TrackingFrame | null = null;
@@ -17,10 +15,6 @@ let isRunning = false;
 
 ui.onMirrorChange(setMirrorEnabled);
 ui.onSmoothingChange(() => undefined);
-ui.onCameraVisibleChange(updateVideoPresentation);
-ui.onDisplayModeChange(updateVideoPresentation);
-ui.onTrailLengthChange(() => undefined);
-ui.onLightIntensityChange(() => undefined);
 ui.onDownload(downloadCurrentFrame);
 ui.onRetry(() => {
   void bootstrap();
@@ -35,7 +29,6 @@ async function bootstrap(): Promise<void> {
   fps = 0;
   previousFrameTime = performance.now();
   isRunning = false;
-  fingerGesture.reset();
   ui.clearError();
   ui.setDownloadEnabled(false);
 
@@ -48,7 +41,6 @@ async function bootstrap(): Promise<void> {
     });
     syncCanvasToVideo(ui.video, ui.canvas, ui.stage);
     setMirrorEnabled(ui.getMirrorEnabled());
-    updateVideoPresentation();
 
     ui.setStatus("Loading model");
     ui.setStageMessage("Loading hand model", true);
@@ -111,24 +103,13 @@ function loop(timestampMs: number): void {
     hands: [],
     mirrorEnabled: ui.getMirrorEnabled(),
     smoothingEnabled: ui.getSmoothingEnabled(),
-    displayMode: ui.getDisplayMode(),
-    cameraVisible: ui.getCameraVisible(),
-    trailLength: ui.getTrailLength(),
-    lightIntensity: ui.getLightIntensity(),
   };
 
   if (ui.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-    const detectedHands = handTracking.detect(
+    frame.hands = handTracking.detect(
       ui.video,
       timestampMs,
       frame.smoothingEnabled,
-    );
-    frame.hands = fingerGesture.analyzeHands(
-      detectedHands,
-      timestampMs,
-      ui.canvas.width,
-      ui.canvas.height,
-      frame.mirrorEnabled,
     );
   }
 
@@ -185,15 +166,6 @@ async function waitForVideoMetadata(video: HTMLVideoElement): Promise<void> {
 
 function setMirrorEnabled(enabled: boolean): void {
   ui.video.style.transform = enabled ? "scaleX(-1)" : "none";
-}
-
-function updateVideoPresentation(): void {
-  const mode = ui.getDisplayMode();
-  const visible = ui.getCameraVisible();
-
-  ui.video.classList.toggle("is-hidden-camera", !visible);
-  ui.video.classList.toggle("is-art-camera", visible && mode === "art");
-  ui.video.classList.toggle("is-hybrid-camera", visible && mode === "hybrid");
 }
 
 function updateFps(timestampMs: number): void {
