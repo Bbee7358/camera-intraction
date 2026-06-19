@@ -1,23 +1,37 @@
 import "./style.css";
-import { drawTrackingFrame, syncCanvasToVideo } from "./drawing";
+import { drawScene, syncCanvasToVideo } from "./drawing";
+import { HandInteractionTracker } from "./fingerGesture";
 import { HandTrackingService } from "./handTracking";
-import type { TrackingFrame } from "./types";
+import type { HandInteraction, TrackingFrame } from "./types";
 import { createDownloadPayload, createUI, downloadJson } from "./ui";
+import { WordWorld } from "./wordPhysics";
 
 const ui = createUI();
 const handTracking = new HandTrackingService();
+const handInteractionTracker = new HandInteractionTracker();
+const wordWorld = new WordWorld();
 
 let animationFrameId = 0;
 let latestFrame: TrackingFrame | null = null;
 let fps = 0;
 let previousFrameTime = performance.now();
 let isRunning = false;
+let latestInteractions: HandInteraction[] = [];
 
 ui.onMirrorChange(setMirrorEnabled);
 ui.onSmoothingChange(() => undefined);
+ui.onCameraVisibleChange(updateVideoPresentation);
+ui.onDisplayModeChange(updateVideoPresentation);
+ui.onSettingsChange(() => undefined);
 ui.onDownload(downloadCurrentFrame);
 ui.onRetry(() => {
   void bootstrap();
+});
+ui.onReset(() => {
+  wordWorld.reset(ui.canvas.width, ui.canvas.height);
+});
+ui.onAddWord((text) => {
+  wordWorld.addWord(text, ui.canvas.width, ui.canvas.height);
 });
 
 void bootstrap();
@@ -29,6 +43,8 @@ async function bootstrap(): Promise<void> {
   fps = 0;
   previousFrameTime = performance.now();
   isRunning = false;
+  latestInteractions = [];
+  handInteractionTracker.reset();
   ui.clearError();
   ui.setDownloadEnabled(false);
 
@@ -41,6 +57,8 @@ async function bootstrap(): Promise<void> {
     });
     syncCanvasToVideo(ui.video, ui.canvas, ui.stage);
     setMirrorEnabled(ui.getMirrorEnabled());
+    updateVideoPresentation();
+    wordWorld.reset(ui.canvas.width, ui.canvas.height);
 
     ui.setStatus("Loading model");
     ui.setStageMessage("Loading hand model", true);
@@ -95,7 +113,7 @@ function loop(timestampMs: number): void {
   }
 
   syncCanvasToVideo(ui.video, ui.canvas, ui.stage);
-  updateFps(timestampMs);
+  const deltaSeconds = updateFps(timestampMs);
 
   const frame: TrackingFrame = {
     timestamp: Date.now(),
@@ -103,6 +121,8 @@ function loop(timestampMs: number): void {
     hands: [],
     mirrorEnabled: ui.getMirrorEnabled(),
     smoothingEnabled: ui.getSmoothingEnabled(),
+    displayMode: ui.getDisplayMode(),
+    cameraVisible: ui.getCameraVisible(),
   };
 
   if (ui.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
@@ -113,8 +133,23 @@ function loop(timestampMs: number): void {
     );
   }
 
+  latestInteractions = handInteractionTracker.getInteractions(
+    frame.hands,
+    timestampMs,
+    ui.canvas.width,
+    ui.canvas.height,
+    frame.mirrorEnabled,
+  );
+  wordWorld.update(
+    deltaSeconds,
+    ui.canvas.width,
+    ui.canvas.height,
+    latestInteractions,
+    ui.getWordSettings(),
+  );
+
   latestFrame = frame;
-  drawTrackingFrame(ui.canvas, frame);
+  drawScene(ui.canvas, frame, wordWorld, latestInteractions);
   ui.renderFrame(frame);
   ui.setDownloadEnabled(frame.hands.length > 0);
   ui.setStageMessage("No hand detected", frame.hands.length === 0);
@@ -168,16 +203,26 @@ function setMirrorEnabled(enabled: boolean): void {
   ui.video.style.transform = enabled ? "scaleX(-1)" : "none";
 }
 
-function updateFps(timestampMs: number): void {
+function updateVideoPresentation(): void {
+  const mode = ui.getDisplayMode();
+  const visible = ui.getCameraVisible();
+
+  ui.video.classList.toggle("is-hidden-camera", !visible);
+  ui.video.classList.toggle("is-art-camera", visible && mode === "art");
+  ui.video.classList.toggle("is-hybrid-camera", visible && mode === "hybrid");
+}
+
+function updateFps(timestampMs: number): number {
   const delta = timestampMs - previousFrameTime;
   previousFrameTime = timestampMs;
 
   if (delta <= 0) {
-    return;
+    return 1 / 60;
   }
 
   const currentFps = 1000 / delta;
   fps = fps === 0 ? currentFps : fps * 0.9 + currentFps * 0.1;
+  return Math.min(0.08, delta / 1000);
 }
 
 function downloadCurrentFrame(): void {

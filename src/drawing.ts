@@ -1,4 +1,6 @@
-import type { HandSnapshot, LandmarkPoint, TrackingFrame } from "./types";
+import { toCanvasPoint } from "./fingerGesture";
+import type { DisplayMode, HandInteraction, HandSnapshot, TrackingFrame } from "./types";
+import type { WordWorld } from "./wordPhysics";
 
 const HAND_CONNECTIONS: Array<[number, number]> = [
   [0, 1],
@@ -42,9 +44,11 @@ export function syncCanvasToVideo(
   stage.style.aspectRatio = `${width} / ${height}`;
 }
 
-export function drawTrackingFrame(
+export function drawScene(
   canvas: HTMLCanvasElement,
   frame: TrackingFrame,
+  wordWorld: WordWorld,
+  interactions: HandInteraction[],
 ): void {
   const context = canvas.getContext("2d");
 
@@ -53,10 +57,25 @@ export function drawTrackingFrame(
   }
 
   context.clearRect(0, 0, canvas.width, canvas.height);
+  drawModeBackground(context, canvas.width, canvas.height, frame.displayMode);
+  if (frame.displayMode !== "debug") {
+    wordWorld.draw(context);
+    drawInteractionCursors(context, interactions, frame.displayMode);
+  }
 
-  frame.hands.forEach((hand, index) => {
-    drawHand(context, hand, canvas.width, canvas.height, frame.mirrorEnabled, index);
-  });
+  if (frame.displayMode !== "art") {
+    frame.hands.forEach((hand, index) => {
+      drawHand(
+        context,
+        hand,
+        canvas.width,
+        canvas.height,
+        frame.mirrorEnabled,
+        index,
+        frame.displayMode,
+      );
+    });
+  }
 }
 
 function drawHand(
@@ -66,12 +85,16 @@ function drawHand(
   height: number,
   mirrorEnabled: boolean,
   handIndex: number,
+  mode: DisplayMode,
 ): void {
   const color = HAND_COLORS[handIndex % HAND_COLORS.length];
+  const skeletonAlpha = mode === "hybrid" ? 0.28 : 1;
+  const landmarkAlpha = mode === "hybrid" ? 0.42 : 1;
+  const showLabels = mode === "debug";
 
   context.lineWidth = Math.max(2, width * 0.003);
   context.lineCap = "round";
-  context.strokeStyle = color;
+  context.strokeStyle = withAlpha(color, skeletonAlpha);
 
   HAND_CONNECTIONS.forEach(([startIndex, endIndex]) => {
     const start = hand.landmarks[startIndex];
@@ -95,28 +118,79 @@ function drawHand(
     const radius = index === 4 || index === 8 ? 7 : 5;
 
     context.beginPath();
-    context.fillStyle = index === 8 ? "#57f287" : index === 4 ? "#ff5c8a" : color;
+    context.fillStyle =
+      index === 8
+        ? withAlpha("#57f287", landmarkAlpha)
+        : index === 4
+          ? withAlpha("#ff5c8a", landmarkAlpha)
+          : withAlpha(color, landmarkAlpha);
     context.arc(point.x, point.y, radius, 0, Math.PI * 2);
     context.fill();
 
     context.lineWidth = 2;
-    context.strokeStyle = "#071018";
+    context.strokeStyle = "rgba(7, 16, 24, 0.86)";
     context.stroke();
 
-    drawLandmarkLabel(context, String(index), point.x, point.y);
+    if (showLabels) {
+      drawLandmarkLabel(context, String(index), point.x, point.y);
+    }
   });
 }
 
-function toCanvasPoint(
-  landmark: LandmarkPoint,
+function drawInteractionCursors(
+  context: CanvasRenderingContext2D,
+  interactions: HandInteraction[],
+  mode: DisplayMode,
+): void {
+  if (mode === "debug") {
+    return;
+  }
+
+  context.save();
+  interactions.forEach((hand) => {
+    const radius = hand.isPinching ? 18 : 11;
+
+    context.strokeStyle = hand.isPinching
+      ? "rgba(255, 116, 167, 0.88)"
+      : "rgba(87, 242, 135, 0.75)";
+    context.lineWidth = hand.isPinching ? 3 : 2;
+    context.beginPath();
+    context.arc(hand.indexFingerTip.x, hand.indexFingerTip.y, radius, 0, Math.PI * 2);
+    context.stroke();
+
+    if (hand.isPinching) {
+      context.beginPath();
+      context.moveTo(hand.thumbTip.x, hand.thumbTip.y);
+      context.lineTo(hand.indexFingerTip.x, hand.indexFingerTip.y);
+      context.stroke();
+    }
+  });
+  context.restore();
+}
+
+function drawModeBackground(
+  context: CanvasRenderingContext2D,
   width: number,
   height: number,
-  mirrorEnabled: boolean,
-): { x: number; y: number } {
-  return {
-    x: (mirrorEnabled ? 1 - landmark.x : landmark.x) * width,
-    y: landmark.y * height,
-  };
+  mode: DisplayMode,
+): void {
+  if (mode === "debug") {
+    return;
+  }
+
+  const gradient = context.createRadialGradient(
+    width * 0.5,
+    height * 0.45,
+    0,
+    width * 0.5,
+    height * 0.5,
+    Math.max(width, height) * 0.72,
+  );
+
+  gradient.addColorStop(0, "rgba(21, 34, 45, 0.3)");
+  gradient.addColorStop(1, "rgba(6, 8, 12, 0.62)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
 }
 
 function drawLandmarkLabel(
@@ -138,6 +212,18 @@ function drawLandmarkLabel(
 
   context.fillStyle = "#ffffff";
   context.fillText(label, labelX, labelY);
+}
+
+function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith("#")) {
+    const value = Number.parseInt(color.slice(1), 16);
+    const r = (value >> 16) & 255;
+    const g = (value >> 8) & 255;
+    const b = value & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  return color;
 }
 
 function clamp(value: number, min: number, max: number): number {
