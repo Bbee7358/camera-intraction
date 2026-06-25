@@ -6,7 +6,7 @@ const WASM_ASSET_PATH =
 const MODEL_ASSET_PATH = "/mediapipe/models/hand_landmarker.task";
 
 export const MAX_HANDS = 2;
-export const PINCH_DISTANCE_THRESHOLD = 0.055;
+export const PINCH_DISTANCE_THRESHOLD = 0.07;
 const SMOOTHING_ALPHA = 0.35;
 
 type MediaPipeCategory = {

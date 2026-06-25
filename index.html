@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tactile Words</title>
+    <title>Hand Zoom Prototype</title>
   </head>
   <body>
     <main class="app-shell">
-      <section class="camera-panel" aria-label="camera preview">
-        <div class="panel-header">
+      <section class="stage-panel" aria-label="hand zoom prototype">
+        <div class="top-bar">
           <div>
             <p class="eyebrow">MediaPipe Hand Landmarker</p>
-            <h1>Tactile Words</h1>
+            <h1>Hand Zoom Prototype</h1>
           </div>
           <div id="statusMessage" class="status-pill">Initializing</div>
         </div>
@@ -23,11 +23,6 @@
         </div>
 
         <div class="control-bar" aria-label="controls">
-          <div class="mode-control" role="group" aria-label="display mode">
-            <button class="mode-button" data-mode="debug" type="button">Debug</button>
-            <button class="mode-button" data-mode="art" type="button">Art</button>
-            <button class="mode-button is-active" data-mode="hybrid" type="button">Hybrid</button>
-          </div>
           <label class="toggle">
             <input id="mirrorToggle" type="checkbox" checked />
             <span>Mirror</span>
@@ -36,79 +31,12 @@
             <input id="smoothingToggle" type="checkbox" checked />
             <span>Smoothing</span>
           </label>
-          <label class="toggle">
-            <input id="cameraToggle" type="checkbox" checked />
-            <span>Camera</span>
-          </label>
-          <label class="slider-control">
-            <span>Soft</span>
-            <input id="softnessSlider" type="range" min="0.4" max="2.2" value="1" step="0.05" />
-            <strong id="softnessValue">1.00</strong>
-          </label>
-          <label class="slider-control">
-            <span>Bounce</span>
-            <input id="elasticitySlider" type="range" min="0.35" max="1.8" value="1" step="0.05" />
-            <strong id="elasticityValue">1.00</strong>
-          </label>
-          <label class="slider-control">
-            <span>Mass</span>
-            <input id="massSlider" type="range" min="0.45" max="2.4" value="1" step="0.05" />
-            <strong id="massValue">1.00</strong>
-          </label>
-          <label class="slider-control">
-            <span>Split</span>
-            <input id="splitSlider" type="range" min="0.5" max="2.6" value="1" step="0.05" />
-            <strong id="splitValue">1.00</strong>
-          </label>
-          <form id="addWordForm" class="add-word-form">
-            <input id="wordInput" type="text" placeholder="新しい言葉" maxlength="18" />
-            <button id="addWordButton" type="submit">Add</button>
-          </form>
-          <button id="resetButton" type="button">Reset</button>
+          <button id="resetZoomButton" type="button">Reset Zoom</button>
           <button id="retryButton" type="button">Retry Camera</button>
-          <button id="downloadButton" type="button" disabled>Download JSON</button>
         </div>
 
         <div id="errorMessage" class="error-message" hidden></div>
       </section>
-
-      <aside class="debug-panel" aria-label="debug information">
-        <div class="debug-header">
-          <h2>Debug</h2>
-          <span id="handCountBadge" class="count-badge">0 hands</span>
-        </div>
-
-        <div class="debug-grid">
-          <div class="debug-row">
-            <span>FPS</span>
-            <strong id="fpsValue">0.0</strong>
-          </div>
-          <div class="debug-row">
-            <span>Hands</span>
-            <strong id="handCountValue">0</strong>
-          </div>
-          <div class="debug-row">
-            <span>Mirror</span>
-            <strong id="mirrorValue">ON</strong>
-          </div>
-          <div class="debug-row">
-            <span>Smoothing</span>
-            <strong id="smoothingValue">ON</strong>
-          </div>
-          <div class="debug-row">
-            <span>Mode</span>
-            <strong id="modeValue">Hybrid</strong>
-          </div>
-          <div class="debug-row">
-            <span>Camera</span>
-            <strong id="cameraValue">ON</strong>
-          </div>
-        </div>
-
-        <div id="handsDebug" class="hands-debug">
-          <div class="empty-debug">No hand detected</div>
-        </div>
-      </aside>
     </main>
 
     <script type="module" src="/src/main.ts"></script>
